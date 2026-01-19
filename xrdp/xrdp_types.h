@@ -438,7 +438,7 @@ struct xrdp_mm
     /* PAM conversation tracking */
     int awaiting_pam_response;           /* 1 if waiting for user response to PAM prompt */
     int pam_conversation_id;             /* Track which conversation we're in */
-    tui64 pam_prompt_time;               /* Time when last prompt was sent (for timeout) */
+    unsigned int pam_prompt_time;        /* Time when last prompt was sent (for timeout) */
 
     /* mod vars */
     long mod_handle; /* returned from g_load_library */

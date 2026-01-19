@@ -2943,14 +2943,14 @@ xrdp_mm_process_pam_message(struct xrdp_mm *self,
             /* Show masked input prompt */
             rv = xrdp_wm_show_pam_prompt(self->wm, message_text, 0);
             self->awaiting_pam_response = 1;
-            self->pam_prompt_time = g_time3();
+            self->pam_prompt_time = g_get_elapsed_ms();
             break;
 
         case E_SCP_PAM_PROMPT_ECHO_ON:
             /* Show visible input prompt */
             rv = xrdp_wm_show_pam_prompt(self->wm, message_text, 1);
             self->awaiting_pam_response = 1;
-            self->pam_prompt_time = g_time3();
+            self->pam_prompt_time = g_get_elapsed_ms();
             break;
 
         case E_SCP_PAM_ERROR_MSG:
