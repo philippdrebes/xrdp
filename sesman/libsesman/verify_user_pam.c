@@ -33,6 +33,8 @@
 #include "log.h"
 #include "string_calls.h"
 #include "sesman_auth.h"
+#include "scp.h"
+#include "trans.h"
 
 #include <stdio.h>
 #include <security/pam_appl.h>

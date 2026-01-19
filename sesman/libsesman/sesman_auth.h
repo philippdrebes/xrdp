@@ -31,6 +31,12 @@
  * Opaque type used to represent an authentication handle
  */
 struct auth_info;
+
+/**
+ * Forward declaration for trans structure (for PAM conversation)
+ */
+struct trans;
+
 #include "scp_application_types.h"
 
 /**
