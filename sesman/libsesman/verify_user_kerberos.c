@@ -182,10 +182,14 @@ k5_kinit(struct auth_info *auth_info, const char *password)
 /* returns non-NULL for success */
 struct auth_info *
 auth_userpass(const char *user, const char *pass,
-              const char *client_ip, enum scp_login_status *errorcode)
+              const char *client_ip, enum scp_login_status *errorcode,
+              struct trans *client_trans)
 {
     enum scp_login_status status = E_SCP_LOGIN_GENERAL_ERROR;
     struct auth_info *auth_info = k5_begin(user);
+
+    /* Note: client_trans is not used in Kerberos authentication */
+    (void)client_trans;
 
     if (auth_info)
     {

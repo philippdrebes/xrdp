@@ -65,8 +65,12 @@ enum scp_msg_code
     E_SCP_CREATE_SOCKDIR_REQUEST,
     E_SCP_CREATE_SOCKDIR_RESPONSE,
 
-    E_SCP_CLOSE_CONNECTION_REQUEST
+    E_SCP_CLOSE_CONNECTION_REQUEST,
     // No E_SCP_CLOSE_CONNECTION_RESPONSE
+
+    /* PAM conversation messages for interactive authentication */
+    E_SCP_PAM_CHALLENGE_REQUEST,  /* sesman -> xrdp */
+    E_SCP_PAM_CHALLENGE_RESPONSE  /* xrdp -> sesman */
 };
 
 /* Common facilities */
@@ -331,6 +335,63 @@ scp_get_login_response(struct trans *trans,
  */
 int
 scp_send_logout_request(struct trans *trans);
+
+/* -------------------- PAM Challenge messages --------------------  */
+
+/**
+ * Send an E_SCP_PAM_CHALLENGE_REQUEST (SCP server)
+ *
+ * @param trans SCP transport
+ * @param message_style PAM message style (prompt/info/error)
+ * @param message_text Message to display to user
+ * @return != 0 for error
+ *
+ * Used during interactive PAM authentication to request additional
+ * information from the user (e.g., 2FA code, password change).
+ *
+ * Client replies with E_SCP_PAM_CHALLENGE_RESPONSE
+ */
+int
+scp_send_pam_challenge_request(struct trans *trans,
+                                enum scp_pam_message_style message_style,
+                                const char *message_text);
+
+/**
+ * Parse an incoming E_SCP_PAM_CHALLENGE_REQUEST message (SCP client)
+ *
+ * @param trans SCP transport
+ * @param[out] message_style PAM message style
+ * @param[out] message_text Message text (must be freed by caller)
+ * @return != 0 for error
+ */
+int
+scp_get_pam_challenge_request(struct trans *trans,
+                               enum scp_pam_message_style *message_style,
+                               char **message_text);
+
+/**
+ * Send an E_SCP_PAM_CHALLENGE_RESPONSE (SCP client)
+ *
+ * @param trans SCP transport
+ * @param response_text User's response to the PAM challenge (or NULL for info-only messages)
+ * @return != 0 for error
+ *
+ * Server may send another E_SCP_PAM_CHALLENGE_REQUEST or E_SCP_LOGIN_RESPONSE
+ */
+int
+scp_send_pam_challenge_response(struct trans *trans,
+                                 const char *response_text);
+
+/**
+ * Parse an incoming E_SCP_PAM_CHALLENGE_RESPONSE message (SCP server)
+ *
+ * @param trans SCP transport
+ * @param[out] response_text User's response (must be freed by caller)
+ * @return != 0 for error
+ */
+int
+scp_get_pam_challenge_response(struct trans *trans,
+                                char **response_text);
 
 /* -------------------- Session messages--------------------  */
 

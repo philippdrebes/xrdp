@@ -69,11 +69,15 @@ struct auth_info
 /* returns non-NULL for success */
 struct auth_info *
 auth_userpass(const char *const_user, const char *const_pass,
-              const char *client_ip, enum scp_login_status *errorcode)
+              const char *client_ip, enum scp_login_status *errorcode,
+              struct trans *client_trans)
 {
     /* Need a non-NULL pointer to return to indicate success */
     static struct auth_info success = {0};
     enum scp_login_status status;
+
+    /* Note: client_trans is not used in BSD authentication */
+    (void)client_trans;
 
     // auth_userokay is not const-correct. See usr.sbin/smtpd/smtpd.c in
     // the OpenBSD source tree for this workaround

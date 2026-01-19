@@ -40,12 +40,14 @@ struct auth_info;
  * @param pass user's password
  * @param client_ip IP address of connecting client (or ""/NULL if not known)
  * @param[out] errorcode Error code for the operation. E_SCP_LOGIN_OK on success.
+ * @param client_trans Transport to client for interactive PAM (or NULL)
  * @return auth handle on success, NULL on failure
  *
  */
 struct auth_info *
 auth_userpass(const char *user, const char *pass,
-              const char *client_ip, enum scp_login_status *errorcode);
+              const char *client_ip, enum scp_login_status *errorcode,
+              struct trans *client_trans);
 
 /**
  *

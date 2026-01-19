@@ -80,6 +80,18 @@ enum scp_login_status
 };
 
 /**
+ * PAM message styles for interactive authentication
+ * Matches PAM's message styles from security/pam_appl.h
+ */
+enum scp_pam_message_style
+{
+    E_SCP_PAM_PROMPT_ECHO_OFF = 1, ///< Prompt user, hide input (e.g., 2FA code)
+    E_SCP_PAM_PROMPT_ECHO_ON = 2,  ///< Prompt user, show input
+    E_SCP_PAM_ERROR_MSG = 3,       ///< Display error message
+    E_SCP_PAM_TEXT_INFO = 4        ///< Display informational message
+};
+
+/**
  * Convert an scp_login_status code to a readable string for output
  * @param n Message code
  * @param buff to contain string

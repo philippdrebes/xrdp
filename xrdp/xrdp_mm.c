@@ -89,6 +89,11 @@ xrdp_mm_create(struct xrdp_wm *owner)
     self->sesman_chansrv_fd = -1;
     self->uid = -1; /* Never good to default UIDs to 0 */
 
+    /* Initialize PAM conversation state */
+    self->awaiting_pam_response = 0;
+    self->pam_conversation_id = 0;
+    self->pam_prompt_time = 0;
+
     // Resize queue support. The resize queue is available early on,
     // but isn't processed until start_processing_resize_queue() is
     // called.
@@ -2873,6 +2878,142 @@ xrdp_mm_process_connect_session_response(struct xrdp_mm *self)
 }
 
 /*****************************************************************************/
+/**
+ * Process a PAM challenge request from sesman
+ *
+ * @param self Module manager
+ * @return 0 on success
+ */
+static int
+xrdp_mm_process_pam_challenge_request(struct xrdp_mm *self)
+{
+    enum scp_pam_message_style message_style;
+    char *message_text = NULL;
+    int rv;
+
+    self->mmcs_expecting_msg = 0;
+
+    rv = scp_get_pam_challenge_request(self->sesman_trans,
+                                       &message_style,
+                                       &message_text);
+    if (rv == 0)
+    {
+        LOG(LOG_LEVEL_DEBUG, "PAM challenge: style=%d, text='%s'",
+            (int)message_style, message_text ? message_text : "");
+
+        rv = xrdp_mm_process_pam_message(self, message_style, message_text);
+
+        g_free(message_text);
+    }
+    else
+    {
+        LOG(LOG_LEVEL_ERROR, "Failed to parse PAM challenge request");
+    }
+
+    return rv;
+}
+
+/*****************************************************************************/
+/**
+ * Process a PAM message and display it to the user
+ *
+ * @param self Module manager
+ * @param message_style PAM message style
+ * @param message_text Message text
+ * @return 0 on success
+ */
+int
+xrdp_mm_process_pam_message(struct xrdp_mm *self,
+                            enum scp_pam_message_style message_style,
+                            const char *message_text)
+{
+    int rv = 0;
+
+    if (self == NULL || self->wm == NULL)
+    {
+        return 1;
+    }
+
+    LOG(LOG_LEVEL_DEBUG, "Processing PAM message: style=%d, text='%s'",
+        (int)message_style, message_text ? message_text : "");
+
+    switch (message_style)
+    {
+        case E_SCP_PAM_PROMPT_ECHO_OFF:
+            /* Show masked input prompt */
+            rv = xrdp_wm_show_pam_prompt(self->wm, message_text, 0);
+            self->awaiting_pam_response = 1;
+            self->pam_prompt_time = g_time3();
+            break;
+
+        case E_SCP_PAM_PROMPT_ECHO_ON:
+            /* Show visible input prompt */
+            rv = xrdp_wm_show_pam_prompt(self->wm, message_text, 1);
+            self->awaiting_pam_response = 1;
+            self->pam_prompt_time = g_time3();
+            break;
+
+        case E_SCP_PAM_ERROR_MSG:
+        case E_SCP_PAM_TEXT_INFO:
+            /* Display info message only */
+            rv = xrdp_wm_show_pam_info(self->wm, message_text);
+            self->awaiting_pam_response = 0;
+            break;
+
+        default:
+            LOG(LOG_LEVEL_WARNING, "Unknown PAM message style: %d",
+                (int)message_style);
+            rv = 1;
+            break;
+    }
+
+    return rv;
+}
+
+/*****************************************************************************/
+/**
+ * Send a PAM response to sesman
+ *
+ * @param self Module manager
+ * @param response User's response text
+ * @return 0 on success
+ */
+int
+xrdp_mm_send_pam_response(struct xrdp_mm *self, const char *response)
+{
+    int rv;
+
+    if (self == NULL || self->sesman_trans == NULL)
+    {
+        return 1;
+    }
+
+    if (!self->awaiting_pam_response)
+    {
+        LOG(LOG_LEVEL_WARNING,
+            "PAM response sent when not waiting for one");
+        return 1;
+    }
+
+    LOG(LOG_LEVEL_DEBUG, "Sending PAM response");
+
+    rv = scp_send_pam_challenge_response(self->sesman_trans, response);
+
+    if (rv == 0)
+    {
+        self->awaiting_pam_response = 0;
+        /* We're now expecting either another challenge or a login response */
+        self->mmcs_expecting_msg = 1;
+    }
+    else
+    {
+        LOG(LOG_LEVEL_ERROR, "Failed to send PAM response");
+    }
+
+    return rv;
+}
+
+/*****************************************************************************/
 /* This is the callback registered for sesman communication replies over SCP */
 static int
 xrdp_mm_scp_data_in(struct trans *trans)
@@ -2890,6 +3031,10 @@ xrdp_mm_scp_data_in(struct trans *trans)
         {
             case E_SCP_LOGIN_RESPONSE:
                 rv = xrdp_mm_process_login_response(self);
+                break;
+
+            case E_SCP_PAM_CHALLENGE_REQUEST:
+                rv = xrdp_mm_process_pam_challenge_request(self);
                 break;
 
             case E_SCP_CREATE_SESSION_RESPONSE:

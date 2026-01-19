@@ -50,6 +50,9 @@ msgno_to_str(unsigned short n)
 
         (n == E_SCP_LOGOUT_REQUEST) ? "SCP_LOGOUT_REQUEST" :
 
+        (n == E_SCP_PAM_CHALLENGE_REQUEST) ? "SCP_PAM_CHALLENGE_REQUEST" :
+        (n == E_SCP_PAM_CHALLENGE_RESPONSE) ? "SCP_PAM_CHALLENGE_RESPONSE" :
+
         (n == E_SCP_CREATE_SESSION_REQUEST) ? "SCP_CREATE_SESSION_REQUEST" :
         (n == E_SCP_CREATE_SESSION_RESPONSE) ? "SCP_CREATE_SESSION_RESPONSE" :
 
@@ -407,6 +410,73 @@ int
 scp_send_logout_request(struct trans *trans)
 {
     return libipm_msg_out_simple_send( trans, (int)E_SCP_LOGOUT_REQUEST, NULL);
+}
+
+
+/*****************************************************************************/
+
+int
+scp_send_pam_challenge_request(struct trans *trans,
+                                enum scp_pam_message_style message_style,
+                                const char *message_text)
+{
+    return libipm_msg_out_simple_send(
+               trans,
+               (int)E_SCP_PAM_CHALLENGE_REQUEST,
+               "is",
+               (int)message_style,
+               message_text);
+}
+
+/*****************************************************************************/
+
+int
+scp_get_pam_challenge_request(struct trans *trans,
+                               enum scp_pam_message_style *message_style,
+                               char **message_text)
+{
+    int temp_style;
+    int rv;
+
+    rv = libipm_msg_in_parse(trans, "is", &temp_style, message_text);
+    if (rv == 0)
+    {
+        *message_style = (enum scp_pam_message_style)temp_style;
+    }
+
+    return rv;
+}
+
+/*****************************************************************************/
+
+int
+scp_send_pam_challenge_response(struct trans *trans,
+                                 const char *response_text)
+{
+    int rv;
+
+    rv = libipm_msg_out_simple_send(
+             trans,
+             (int)E_SCP_PAM_CHALLENGE_RESPONSE,
+             "s",
+             response_text ? response_text : "");
+
+    /* Wipe the output buffer to remove sensitive response data */
+    libipm_msg_out_erase(trans);
+
+    return rv;
+}
+
+/*****************************************************************************/
+
+int
+scp_get_pam_challenge_response(struct trans *trans,
+                                char **response_text)
+{
+    /* Make sure the buffer is cleared after processing this message */
+    libipm_set_flags(trans, LIBIPM_E_MSG_IN_ERASE_AFTER_USE);
+
+    return libipm_msg_in_parse(trans, "s", response_text);
 }
 
 

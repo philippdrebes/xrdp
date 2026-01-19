@@ -136,10 +136,14 @@ common_pam_login(struct auth_info *auth_info,
 
 struct auth_info *
 auth_userpass(const char *user, const char *pass,
-              const char *client_ip, enum scp_login_status *errorcode)
+              const char *client_ip, enum scp_login_status *errorcode,
+              struct trans *client_trans)
 {
     struct auth_info *auth_info;
     enum scp_login_status status;
+
+    /* Note: client_trans is not used in pam_userpass authentication */
+    (void)client_trans;
 
     auth_info = g_new0(struct auth_info, 1);
     if (auth_info == NULL)

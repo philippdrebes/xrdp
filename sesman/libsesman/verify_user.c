@@ -63,7 +63,8 @@ struct auth_info
 /* returns non-NULL for success */
 struct auth_info *
 auth_userpass(const char *user, const char *pass,
-              const char *client_ip, enum scp_login_status *errorcode)
+              const char *client_ip, enum scp_login_status *errorcode,
+              struct trans *client_trans)
 {
     const char *encr = NULL;
     struct passwd *spw;
@@ -73,6 +74,9 @@ auth_userpass(const char *user, const char *pass,
 
     /* Most likely codepath return from here is 'not authenticated' */
     enum scp_login_status status = E_SCP_LOGIN_NOT_AUTHENTICATED;
+
+    /* Note: client_trans is not used in non-PAM authentication */
+    (void)client_trans;
 
     /* Find the encrypted password */
     if ((spw = getpwnam(user)) != NULL)

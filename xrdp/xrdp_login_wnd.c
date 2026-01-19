@@ -557,6 +557,10 @@ xrdp_wm_login_notify(struct xrdp_bitmap *wnd,
         {
             xrdp_wm_ok_clicked(wnd);
         }
+        else if (sender->id == 11) /* PAM submit button */
+        {
+            xrdp_wm_pam_submit_clicked(wnd->wm);
+        }
     }
     else if (msg == 2) /* mouse move */
     {
@@ -1003,6 +1007,89 @@ xrdp_login_wnd_create(struct xrdp_wm *self)
                             combo->data_list->count, 1,
                             resultIP /* just a dummy place holder, we ignore */ );
     xrdp_wm_show_edits(self, combo);
+
+    /* PAM conversation controls - initially hidden */
+    /* Message box for displaying PAM messages */
+    self->pam_message_box = xrdp_bitmap_create(
+                                globals->ls_scaled.input_width,
+                                80,  /* Height for message area */
+                                self->screen->bpp,
+                                WND_TYPE_LABEL,  /* Multi-line label */
+                                self);
+    if (self->pam_message_box != NULL)
+    {
+        list_add_item(self->login_window->child_list, (long)self->pam_message_box);
+        self->pam_message_box->parent = self->login_window;
+        self->pam_message_box->owner = self->login_window;
+        self->pam_message_box->left = globals->ls_scaled.input_x_pos;
+        self->pam_message_box->top = globals->ls_scaled.btn_ok_y_pos - 150;
+        self->pam_message_box->state = 1;  /* Hidden initially */
+        set_string(&self->pam_message_box->caption1, "");
+    }
+
+    /* Label for PAM input prompt */
+    self->pam_input_label = xrdp_bitmap_create(
+                                globals->ls_scaled.input_width,
+                                edit_height,
+                                self->screen->bpp,
+                                WND_TYPE_LABEL,
+                                self);
+    if (self->pam_input_label != NULL)
+    {
+        list_add_item(self->login_window->child_list, (long)self->pam_input_label);
+        self->pam_input_label->parent = self->login_window;
+        self->pam_input_label->owner = self->login_window;
+        self->pam_input_label->left = globals->ls_scaled.input_x_pos;
+        self->pam_input_label->top = globals->ls_scaled.btn_ok_y_pos - 60;
+        self->pam_input_label->state = 1;  /* Hidden initially */
+        set_string(&self->pam_input_label->caption1, "");
+    }
+
+    /* Input field for PAM responses */
+    self->pam_input_field = xrdp_bitmap_create(
+                                globals->ls_scaled.input_width,
+                                edit_height,
+                                self->screen->bpp,
+                                WND_TYPE_EDIT,
+                                self);
+    if (self->pam_input_field != NULL)
+    {
+        list_add_item(self->login_window->child_list, (long)self->pam_input_field);
+        self->pam_input_field->parent = self->login_window;
+        self->pam_input_field->owner = self->login_window;
+        self->pam_input_field->left = globals->ls_scaled.input_x_pos;
+        self->pam_input_field->top = globals->ls_scaled.btn_ok_y_pos - 40;
+        self->pam_input_field->id = 10;  /* Unique ID for PAM input */
+        self->pam_input_field->tab_stop = 1;
+        self->pam_input_field->state = 1;  /* Hidden initially */
+        self->pam_input_field->edit_pos = -1;
+        set_string(&self->pam_input_field->caption1, "");
+    }
+
+    /* Submit button for PAM responses */
+    self->pam_submit_button = xrdp_bitmap_create(
+                                  globals->ls_scaled.btn_ok_width,
+                                  globals->ls_scaled.btn_ok_height,
+                                  self->screen->bpp,
+                                  WND_TYPE_BUTTON,
+                                  self);
+    if (self->pam_submit_button != NULL)
+    {
+        list_add_item(self->login_window->child_list, (long)self->pam_submit_button);
+        self->pam_submit_button->parent = self->login_window;
+        self->pam_submit_button->owner = self->login_window;
+        self->pam_submit_button->left = globals->ls_scaled.btn_ok_x_pos;
+        self->pam_submit_button->top = globals->ls_scaled.btn_ok_y_pos - 10;
+        self->pam_submit_button->id = 11;  /* Unique ID for PAM submit */
+        self->pam_submit_button->tab_stop = 1;
+        self->pam_submit_button->state = 1;  /* Hidden initially */
+        set_string(&self->pam_submit_button->caption1, "Submit");
+    }
+
+    /* Initialize PAM conversation state */
+    self->pam_conversation_active = 0;
+    self->pam_input_echo_on = 0;
+    self->pam_accumulated_messages[0] = '\0';
 
     return 0;
 }

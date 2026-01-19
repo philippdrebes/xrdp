@@ -476,6 +476,16 @@ load_xrdp_config(struct xrdp_config *config, const char *xrdp_ini, int bpp);
 void
 xrdp_login_wnd_scale_config_values(struct xrdp_wm *self);
 
+/* PAM conversation UI functions */
+int
+xrdp_wm_show_pam_prompt(struct xrdp_wm *self,
+                        const char *message,
+                        int echo_on);
+int
+xrdp_wm_show_pam_info(struct xrdp_wm *self, const char *message);
+int
+xrdp_wm_pam_submit_clicked(struct xrdp_wm *self);
+
 /* xrdp_bitmap_compress.c */
 int
 xrdp_bitmap_compress(char *in_data, int width, int height,
@@ -553,6 +563,13 @@ void
 xrdp_mm_delete(struct xrdp_mm *self);
 void
 xrdp_mm_connect(struct xrdp_mm *self);
+/* PAM conversation handling */
+int
+xrdp_mm_process_pam_message(struct xrdp_mm *self,
+                            enum scp_pam_message_style message_style,
+                            const char *message_text);
+int
+xrdp_mm_send_pam_response(struct xrdp_mm *self, const char *response);
 int
 xrdp_mm_process_channel_data(struct xrdp_mm *self, tbus param1, tbus param2,
                              tbus param3, tbus param4);

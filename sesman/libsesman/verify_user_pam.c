@@ -41,6 +41,7 @@
 struct conv_func_data
 {
     const char *pass;
+    struct trans *client_trans;  /* Transport to xrdp for interactive PAM */
 };
 
 struct auth_info
@@ -143,27 +144,94 @@ verify_pam_conv(int num_msg, const struct pam_message **msg,
             switch (msg[i]->msg_style)
             {
                 case PAM_PROMPT_ECHO_OFF: /* password */
+                case PAM_PROMPT_ECHO_ON:  /* visible input */
                     conv_func_data = (struct conv_func_data *) appdata_ptr;
-                    /* Check this function isn't being called
-                     * later than we expected */
-                    if (conv_func_data == NULL || conv_func_data->pass == NULL)
+
+                    /* If we have a client transport, send challenge to xrdp */
+                    if (conv_func_data != NULL && conv_func_data->client_trans != NULL)
                     {
-                        LOG(LOG_LEVEL_ERROR,
-                            "verify_pam_conv: Password unavailable");
-                        reply[i].resp = g_strdup("????");
+                        enum scp_pam_message_style style =
+                            (msg[i]->msg_style == PAM_PROMPT_ECHO_OFF) ?
+                            E_SCP_PAM_PROMPT_ECHO_OFF : E_SCP_PAM_PROMPT_ECHO_ON;
+                        char *response_text = NULL;
+
+                        /* Send challenge to xrdp */
+                        if (scp_send_pam_challenge_request(conv_func_data->client_trans,
+                                                           style,
+                                                           msg[i]->msg ? msg[i]->msg : "") != 0)
+                        {
+                            LOG(LOG_LEVEL_ERROR, "Failed to send PAM challenge to client");
+                            rv = PAM_CONV_ERR;
+                            break;
+                        }
+
+                        /* Wait for response from xrdp */
+                        if (scp_msg_in_wait_available(conv_func_data->client_trans) != 0)
+                        {
+                            LOG(LOG_LEVEL_ERROR, "Error waiting for PAM response from client");
+                            rv = PAM_CONV_ERR;
+                            break;
+                        }
+
+                        /* Check we got a response message */
+                        if (scp_msg_in_get_msgno(conv_func_data->client_trans) !=
+                                E_SCP_PAM_CHALLENGE_RESPONSE)
+                        {
+                            LOG(LOG_LEVEL_ERROR, "Unexpected message type from client during PAM");
+                            rv = PAM_CONV_ERR;
+                            break;
+                        }
+
+                        /* Get the response */
+                        if (scp_get_pam_challenge_response(conv_func_data->client_trans,
+                                                           &response_text) != 0)
+                        {
+                            LOG(LOG_LEVEL_ERROR, "Failed to parse PAM response from client");
+                            rv = PAM_CONV_ERR;
+                            break;
+                        }
+
+                        reply[i].resp = response_text;
+                        scp_msg_in_reset(conv_func_data->client_trans);
+                    }
+                    /* Fallback: use pre-stored password (for first prompt or non-interactive) */
+                    else if (conv_func_data != NULL && conv_func_data->pass != NULL)
+                    {
+                        reply[i].resp = g_strdup(conv_func_data->pass);
                     }
                     else
                     {
-                        reply[i].resp = g_strdup(conv_func_data->pass);
+                        LOG(LOG_LEVEL_ERROR,
+                            "verify_pam_conv: No response available for prompt");
+                        reply[i].resp = g_strdup("????");
+                        rv = PAM_CONV_ERR;
                     }
                     break;
 
                 case PAM_ERROR_MSG:
                     LOG(LOG_LEVEL_ERROR, "PAM: %s", msg[i]->msg);
+                    conv_func_data = (struct conv_func_data *) appdata_ptr;
+
+                    /* Send error message to xrdp if connected */
+                    if (conv_func_data != NULL && conv_func_data->client_trans != NULL)
+                    {
+                        scp_send_pam_challenge_request(conv_func_data->client_trans,
+                                                       E_SCP_PAM_ERROR_MSG,
+                                                       msg[i]->msg ? msg[i]->msg : "");
+                    }
                     break;
 
                 case PAM_TEXT_INFO:
                     LOG(LOG_LEVEL_INFO, "PAM: %s", msg[i]->msg);
+                    conv_func_data = (struct conv_func_data *) appdata_ptr;
+
+                    /* Send info message to xrdp if connected */
+                    if (conv_func_data != NULL && conv_func_data->client_trans != NULL)
+                    {
+                        scp_send_pam_challenge_request(conv_func_data->client_trans,
+                                                       E_SCP_PAM_TEXT_INFO,
+                                                       msg[i]->msg ? msg[i]->msg : "");
+                    }
                     break;
 
                 default:
@@ -231,6 +299,7 @@ get_service_name(char *service_name)
  * @param pass Password, if needed for authentication.
  * @param client_ip Client IP if known, or NULL
  * @param authentication_required True if user must be authenticated
+ * @param client_trans Transport to client for interactive PAM (or NULL)
  *
  * For a UDS connection, the user can be assumed to be authenticated,
  * so in this instance authentication_required can be false.
@@ -242,7 +311,8 @@ common_pam_login(struct auth_info *auth_info,
                  const char *user,
                  const char *pass,
                  const char *client_ip,
-                 int authentication_required)
+                 int authentication_required,
+                 struct trans *client_trans)
 {
     int perror;
     char service_name[256];
@@ -254,6 +324,7 @@ common_pam_login(struct auth_info *auth_info,
      * structure which allows us to pass this to pam_start()
      */
     conv_func_data.pass = (authentication_required) ? pass : NULL;
+    conv_func_data.client_trans = client_trans;
     pamc.conv = verify_pam_conv;
     pamc.appdata_ptr = (void *) &conv_func_data;
 
@@ -333,7 +404,8 @@ common_pam_login(struct auth_info *auth_info,
 
 struct auth_info *
 auth_userpass(const char *user, const char *pass,
-              const char *client_ip, enum scp_login_status *errorcode)
+              const char *client_ip, enum scp_login_status *errorcode,
+              struct trans *client_trans)
 {
     struct auth_info *auth_info;
     enum scp_login_status status;
@@ -345,7 +417,7 @@ auth_userpass(const char *user, const char *pass,
     }
     else
     {
-        status = common_pam_login(auth_info, user, pass, client_ip, 1);
+        status = common_pam_login(auth_info, user, pass, client_ip, 1, client_trans);
 
         if (status != E_SCP_LOGIN_OK)
         {
@@ -377,7 +449,7 @@ auth_uds(const char *user, enum scp_login_status *errorcode)
     }
     else
     {
-        status = common_pam_login(auth_info, user, NULL, NULL, 0);
+        status = common_pam_login(auth_info, user, NULL, NULL, 0, NULL);
 
         if (status != E_SCP_LOGIN_OK)
         {

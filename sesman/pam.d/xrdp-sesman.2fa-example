@@ -1,0 +1,42 @@
+#%PAM-1.0
+# Example PAM configuration for xrdp with 2FA support
+# Copy this to /etc/pam.d/xrdp-sesman to enable
+
+# Standard Unix authentication (password)
+auth       required     pam_env.so
+auth       required     pam_unix.so
+
+# Google Authenticator 2FA (TOTP)
+# Install: sudo apt-get install libpam-google-authenticator
+# Setup per user: google-authenticator -t -d -f -r 3 -R 30 -w 3
+auth       required     pam_google_authenticator.so forward_pass
+
+# Account and session management
+account    required     pam_unix.so
+session    required     pam_unix.so
+session    optional     pam_systemd.so
+
+# Password management (for password expiry)
+password   required     pam_unix.so
+
+# Alternative configurations:
+
+# Duo 2FA (uncomment to use instead of Google Authenticator)
+# Install: Follow Duo Unix installation guide
+# Configure: /etc/duo/pam_duo.conf
+# auth       required     pam_duo.so
+
+# YubiKey OTP (uncomment to use)
+# Install: sudo apt-get install libpam-yubico
+# auth       required     pam_yubico.so id=<YOUR_CLIENT_ID> key=<YOUR_SECRET_KEY>
+
+# Multi-factor stack (use multiple 2FA methods)
+# auth       required     pam_unix.so
+# auth       required     pam_google_authenticator.so forward_pass
+# auth       required     pam_duo.so
+
+# Notes:
+# - forward_pass: allows password to pass through to next PAM module
+# - The order matters: password first, then 2FA
+# - Test with a non-root user first before applying globally
+# - Keep a root console open when testing in case of lockout

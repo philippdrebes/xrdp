@@ -434,6 +434,12 @@ struct xrdp_mm
 
     struct list *login_names;
     struct list *login_values;
+
+    /* PAM conversation tracking */
+    int awaiting_pam_response;           /* 1 if waiting for user response to PAM prompt */
+    int pam_conversation_id;             /* Track which conversation we're in */
+    tui64 pam_prompt_time;               /* Time when last prompt was sent (for timeout) */
+
     /* mod vars */
     long mod_handle; /* returned from g_load_library */
     struct xrdp_mod *(*mod_init)(void);
@@ -598,6 +604,15 @@ struct xrdp_wm
     int current_surface_index;
     int hints;
     char pamerrortxt[256];
+
+    /* PAM conversation state for interactive authentication */
+    int pam_conversation_active;         /* 1 if in PAM conversation */
+    struct xrdp_bitmap *pam_message_box;  /* Scrollable text area for PAM messages */
+    struct xrdp_bitmap *pam_input_label;  /* Label showing current prompt */
+    struct xrdp_bitmap *pam_input_field;  /* Dynamic input field */
+    struct xrdp_bitmap *pam_submit_button; /* Submit button */
+    int pam_input_echo_on;               /* 1 for visible input, 0 for masked */
+    char pam_accumulated_messages[4096]; /* History of PAM messages */
 
     /* configuration derived from xrdp.ini */
     struct xrdp_config *xrdp_config;

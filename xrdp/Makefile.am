@@ -80,6 +80,7 @@ xrdp_SOURCES = \
   xrdp_egfx.c \
   xrdp_egfx.h \
   xrdp_wm.c \
+  xrdp_wm_pam.c \
   xrdp_main_utils.c \
   xrdp_tconfig.c \
   xrdp_tconfig.h \
