@@ -140,8 +140,8 @@ xrdp_wm_show_pam_prompt(struct xrdp_wm *self,
     {
         self->pam_input_echo_on = echo_on;
 
-        /* Set password mode (0 for echo on, 1 for echo off) */
-        self->pam_input_field->password_mode = (echo_on == 0) ? 1 : 0;
+        /* Set password mode ('*' for masked, 0 for visible) */
+        self->pam_input_field->password_char = (echo_on == 0) ? '*' : 0;
 
         /* Clear the input field */
         set_string(&self->pam_input_field->caption1, "");
