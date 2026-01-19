@@ -37,6 +37,7 @@
 #include "file.h"
 #include "xrdp_client_info.h"
 #include "log.h"
+#include "scp_application_types.h"
 
 #if defined(XRDP_X264) || defined(XRDP_OPENH264) || defined(XRDP_NVENC)
 #if !defined(XRDP_H264)
